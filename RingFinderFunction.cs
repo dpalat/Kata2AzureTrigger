@@ -1,21 +1,19 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace LordOfTheRing.Functions
 {
-    public static class RingFinderFunction
+    public class RingFinderFunction
     {
-        private const string TeamName = "XXXXTeamNameXXXX";
-        private const string TeamNameFunctionName = "XXXXTeamNameXXXX" + "RingFinder";
         public static List<string> _listOfUniqueRings = new List<string>();
 
-        [FunctionName(TeamNameFunctionName)]
-        public static async Task RunAsync(
-            [ServiceBusTrigger("cracks-of-doom", TeamName, Connection = "ServiceBusConnection")]
+        [FunctionName("RingFinder")]
+        public async Task RunAsync(
+            [ServiceBusTrigger("cracks-of-doom", "%TeamName%", Connection = "ServiceBusConnection")]
                 MiddleEarthObject middleearthObject,
             [CosmosDB(
                     databaseName: "Middle-Earth",
@@ -26,12 +24,12 @@ namespace LordOfTheRing.Functions
                 IAsyncCollector<dynamic> cosmosDbDocuments,
                 ILogger log)
         {
-            if (middleearthObject.type.ToLower() != "ring") return;
+            if (middleearthObject.teamName.ToLower() != _teamName) return;
 
+            if (middleearthObject.type.ToLower() != "ring") return;
             log.LogInformation($"We found a [Ring] with sub-type '{middleearthObject.subtype}', id: '{middleearthObject.id}'");
 
             if (middleearthObject.subtype.ToLower() != "uniquering") return;
-
             log.LogInformation($"We found a [Unique Ring]!!, id: '{middleearthObject.id}'");
 
             if (_listOfUniqueRings.Exists(id => id == middleearthObject.id))
@@ -39,9 +37,11 @@ namespace LordOfTheRing.Functions
                 log.LogWarning($"We found all the [Unique Rings]!! total unique rings: '{_listOfUniqueRings.Count}'.");
                 var document = new
                 {
-                    Description = $"We found '{_listOfUniqueRings.Count}' a unique Rings, we are '{TeamName}' team",
-                    team = TeamName,
-                    _pk = TeamName,
+                    Description = $"We found '{_listOfUniqueRings.Count}' unique Rings, "
+                                + $"we are '{_teamName}' team [{DateTime.UtcNow.ToString("hh.mm.ss.ffffff")}]",
+                    teamName = _teamName,
+                    _pk = _teamName,
+                    MachineName = Environment.MachineName,
                     id = Guid.NewGuid()
                 };
                 await cosmosDbDocuments.AddAsync(document);
@@ -52,6 +52,12 @@ namespace LordOfTheRing.Functions
             {
                 _listOfUniqueRings.Add(middleearthObject.id);
             }
+        }
+
+        private static string _teamName;
+        public RingFinderFunction(IConfiguration config)
+        {
+            _teamName = config["TeamName"].ToLower();
         }
     }
 

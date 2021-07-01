@@ -5,5 +5,6 @@ namespace LordOfTheRing.Functions
         public string id { get; set; }
         public string type { get; set; }
         public string subtype { get; set; }
+        public string teamName { get; set; }
     }
 }
