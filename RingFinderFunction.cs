@@ -14,7 +14,7 @@ namespace LordOfTheRing.Functions
         [FunctionName("RingFinder")]
         public async Task RunAsync(
             [ServiceBusTrigger("cracks-of-doom", "%TeamName%", Connection = "ServiceBusConnection")]
-                MiddleEarthObject middleearthObject,
+                MiddleEarthObject middleEarthObject,
             [CosmosDB(
                     databaseName: "Middle-Earth",
                     collectionName: "Mordor",
@@ -24,15 +24,21 @@ namespace LordOfTheRing.Functions
                 IAsyncCollector<dynamic> cosmosDbDocuments,
                 ILogger log)
         {
-            if (middleearthObject.teamName.ToLower() != _teamName) return;
+            if (middleEarthObject.teamName.ToLower() != _teamName) return;
 
-            if (middleearthObject.type.ToLower() != "ring") return;
-            log.LogInformation($"We found a [Ring] with sub-type '{middleearthObject.subtype}', id: '{middleearthObject.id}'");
+            if (middleEarthObject.type.ToLower() == "orcs")
+            {
+                log.LogError($"We are found orcs!! we are cancelling this journey :(.");
+                _listOfUniqueRings = new List<string>();
+                return;
+            }
 
-            if (middleearthObject.subtype.ToLower() != "uniquering") return;
-            log.LogInformation($"We found a [Unique Ring]!!, id: '{middleearthObject.id}'");
+            if (middleEarthObject.type.ToLower() != "ring") return;
 
-            if (_listOfUniqueRings.Exists(id => id == middleearthObject.id))
+            if (middleEarthObject.subtype.ToLower() != "uniquering") return;
+            log.LogInformation($"We found a [Unique Ring] 💍💍💍, id: '{middleEarthObject.id}'");
+
+            if (_listOfUniqueRings.Exists(id => id == middleEarthObject.id))
             {
                 log.LogWarning($"We found all the [Unique Rings]!! total unique rings: '{_listOfUniqueRings.Count}'.");
                 var document = new
@@ -50,14 +56,15 @@ namespace LordOfTheRing.Functions
             }
             else
             {
-                _listOfUniqueRings.Add(middleearthObject.id);
+                _listOfUniqueRings.Add(middleEarthObject.id);
             }
         }
 
         private static string _teamName;
         public RingFinderFunction(IConfiguration config)
         {
-            _teamName = config["TeamName"].ToLower();
+            if (string.IsNullOrEmpty(_teamName))
+                _teamName = config["TeamName"].ToLower();
         }
     }
 
